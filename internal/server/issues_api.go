@@ -46,8 +46,11 @@ func (s *Server) handleListIssues(w http.ResponseWriter, r *http.Request) {
 	f.ProjectID, _ = toInt64(q.Get("project"))
 	if v := q.Get("since"); v != "" {
 		d, err := time.ParseDuration(v)
+		if n, ok := toInt64(strings.TrimSuffix(v, "d")); ok && strings.HasSuffix(v, "d") {
+			d, err = time.Duration(n)*24*time.Hour, nil
+		}
 		if err != nil {
-			writeErr(w, http.StatusBadRequest, "since is a length like 24h")
+			writeErr(w, http.StatusBadRequest, "since is a length like 24h or 7d")
 			return
 		}
 		f.Since = store.Stamp(time.Now().Add(-d))
