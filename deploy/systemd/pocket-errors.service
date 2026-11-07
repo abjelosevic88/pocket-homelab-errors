@@ -1,0 +1,23 @@
+[Unit]
+Description=Pocket Errors — error tracking for your apps and websites
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=pocket-errors
+Group=pocket-errors
+ExecStart=/usr/local/bin/pocket-errors
+Environment=DATA_DIR=/var/lib/pocket-errors
+Environment=PORT=8080
+Environment=BASE_URL=https://errors.example.com
+Environment=SECURE_COOKIES=true
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/pocket-errors
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

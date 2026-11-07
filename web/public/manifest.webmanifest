@@ -1,0 +1,51 @@
+{
+  "name": "Pocket Errors",
+  "short_name": "Errors",
+  "description": "Catches the errors of your apps and websites and groups them into issues: what broke, where in the code, how often and since when.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f6f8",
+  "theme_color": "#b42318",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Open issues",
+      "url": "/"
+    },
+    {
+      "name": "Projects",
+      "url": "/projects"
+    },
+    {
+      "name": "New project",
+      "url": "/projects?new=1"
+    }
+  ]
+}

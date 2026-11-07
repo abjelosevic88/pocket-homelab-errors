@@ -1,0 +1,4 @@
+# Pocket Errors behind Caddy.
+errors.example.com {
+	reverse_proxy pocket-errors:8080
+}
