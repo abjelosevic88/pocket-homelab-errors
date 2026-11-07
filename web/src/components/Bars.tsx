@@ -1,6 +1,22 @@
 // Small bar charts: a row's last 24 hours, an issue's day or month, the
 // overview's hours by level. Plain SVG; nothing moves when the numbers change.
-import { useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
+
+/** The element's real width, so a chart draws 1:1 and its text, dots and corners keep their shape. */
+function useWidth(fallback: number) {
+  const [w, setW] = useState(fallback)
+  const ro = useRef<ResizeObserver | null>(null)
+  const ref = useCallback((el: Element | null) => {
+    ro.current?.disconnect()
+    ro.current = null
+    if (!el) return
+    const measure = () => { const cw = Math.round(el.getBoundingClientRect().width); if (cw > 0) setW(cw) }
+    measure()
+    ro.current = new ResizeObserver(measure)
+    ro.current.observe(el)
+  }, [])
+  return [ref, w] as const
+}
 
 export function Spark({ values, width = 96, height = 22, label }: { values?: number[]; width?: number; height?: number; label?: string }) {
   const v = values && values.length ? values : new Array(24).fill(0)
@@ -25,17 +41,17 @@ export function Bars({ series, labels, height = 120, every = 6 }: { series: Seri
   const n = labels.length
   const totals = labels.map((_, i) => series.reduce((s, x) => s + (x.values[i] || 0), 0))
   const max = Math.max(1, ...totals)
-  const W = 600
+  const [ref, W] = useWidth(600)
   const gap = n > 40 ? 1 : 3
   const w = (W - gap * (n - 1)) / n
   const shown = hover ?? null
   return (
-    <div className="bars">
+    <div className="bars" ref={ref}>
       <div className="bars-tip" aria-live="polite">
         {shown != null ? <><b>{labels[shown]}</b> · {totals[shown].toLocaleString()} {totals[shown] === 1 ? 'error' : 'errors'}{series.length > 1 && totals[shown] > 0 && <> ({series.filter(s => s.values[shown]).map(s => `${s.values[shown]} ${s.label.toLowerCase()}`).join(', ')})</>}</>
           : <span className="muted">Point at a bar for its count</span>}
       </div>
-      <svg viewBox={`0 0 ${W} ${height}`} preserveAspectRatio="none" className="bars-svg" style={{ height }} onMouseLeave={() => setHover(null)}>
+      <svg viewBox={`0 0 ${W} ${height}`} width={W} height={height} className="bars-svg" onMouseLeave={() => setHover(null)}>
         {labels.map((_, i) => {
           let y = height
           return (
