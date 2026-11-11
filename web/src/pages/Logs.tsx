@@ -608,6 +608,7 @@ function SourcesTab({ go }: { go: (t: Tab, q?: URLSearchParams) => void }) {
         <div className="input-icon"><Icon name="search" size={14} /><input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder="Find a source" aria-label="Find a source" /></div>
         <Segmented size="sm" label="Sort" options={[{ value: 'lines', label: 'Busiest' }, { value: 'errors', label: 'Most errors' }, { value: 'name', label: 'Name' }]} value={sort} onChange={v => setSort(v as typeof sort)} />
       </div>
+      <ConnectDevice hasDevices={list.some(s => s.group === 'device')} />
       {GROUPS.map((g, gi) => {
         const rows = shown.filter(s => s.group === g.id)
         if (!rows.length) return null
@@ -633,5 +634,86 @@ function SourcesTab({ go }: { go: (t: Tab, q?: URLSearchParams) => void }) {
         )
       })}
     </div>
+  )
+}
+
+// ---------------- connecting a phone or computer ----------------
+
+function CodeBlock({ code }: { code: string }) {
+  const { toast } = useToast()
+  return (
+    <div className="code-block">
+      <pre>{code}</pre>
+      <button type="button" className="btn ghost icon-only sm" aria-label="Copy" title="Copy" onClick={() => { navigator.clipboard?.writeText(code); toast('Copied') }}><Icon name="copy" size={14} /></button>
+    </div>
+  )
+}
+
+/** How to send lines from outside the box: an iPhone (through a Mac), an app with a Sentry SDK, anything with curl. */
+function ConnectDevice({ hasDevices }: { hasDevices: boolean }) {
+  const [open, setOpen] = useState(!hasDevices)
+  const [how, setHow] = useState<'homelab' | 'iphone' | 'app' | 'other'>('homelab')
+  const base = window.location.origin
+  if (!open) return <div className="logs-bar"><button type="button" className="btn" onClick={() => setOpen(true)}><Icon name="smartphone" size={15} />Connect a phone or computer</button></div>
+  return (
+    <Card className="connect" title={<span className="src-group-h"><Icon name="smartphone" size={16} />Connect a phone or computer</span>}
+      sub="Its lines land under Phones & devices, as one source you can search, chart and follow live."
+      actions={<>
+        <Segmented size="sm" label="What" options={[{ value: 'homelab', label: 'Pocket Homelab' }, { value: 'iphone', label: 'iPhone log' }, { value: 'app', label: 'Another app' }, { value: 'other', label: 'Anything' }]} value={how} onChange={v => setHow(v as typeof how)} />
+        {hasDevices && <button type="button" className="btn ghost icon-only sm" aria-label="Close" onClick={() => setOpen(false)}><Icon name="x" size={14} /></button>}
+      </>}>
+      {how === 'homelab' && <>
+        <p className="connect-note">The Pocket Homelab app (build 1413 or newer) sends its own log and errors here by itself: background runs and battery use, failed requests (host, path and status only), Apple Health sync failures, and the crashes, hangs and overuse iOS reports. Addresses lose their query and any password first; nothing leaves the phone while Pocket Errors is not set up.</p>
+        <ol className="connect-steps">
+          <li>Through Pocket Core it is set up already. Without it: in the app, Settings → Services → Pocket Errors, the address <code>{base}</code> and a token from <Link to="/settings/tokens">Settings → API tokens</Link>.</li>
+          <li>Use an admin’s account: only admins may send lines to Logs (errors go in for anyone).</li>
+          <li>Lines show under Phones & devices as <b>Pocket Homelab (iPhone)</b>, errors as issues of the project of that name — and an issue shows what the phone logged two minutes either side. The phone sends when the app opens, closes or refreshes in the background; an offline day arrives later.</li>
+        </ol>
+      </>}
+      {how === 'iphone' && <>
+        <p className="connect-note">An iPhone does not hand its system log to anyone over the network by itself: a Mac it trusts reads it (over the cable, or over Wi-Fi once paired) and sends it here.</p>
+        <ol className="connect-steps">
+          <li>Make an API token: <Link to="/settings/tokens">Settings → API tokens</Link> (as an admin). Copy it.</li>
+          <li>On the Mac, get the reader and the sending script:
+            <CodeBlock code={`brew install libimobiledevice
+curl -fsSL ${base}/pocket-logs.sh -o ~/pocket-logs.sh && chmod +x ~/pocket-logs.sh`} /></li>
+          <li>Plug the iPhone in once and tap <b>Trust</b> (for Wi-Fi: Finder → the iPhone → “Show this iPhone when on Wi-Fi”). Then start it:
+            <CodeBlock code={`export POCKET_ERRORS_URL=${base}
+export POCKET_ERRORS_TOKEN=per_…   # the token from step 1
+idevicesyslog | ~/pocket-logs.sh iphone "iPhone"`} />
+            <span className="connect-note">Over Wi-Fi: <code>idevicesyslog -n</code>. Only one app’s lines: <code>idevicesyslog -p SpringBoard</code>. Several phones: give each its own name (<code>iphone-ana "Ana’s iPhone"</code>).</span></li>
+          <li>Within a few seconds <b>iPhone</b> shows under Phones & devices. Every line carries the process it came from — search <code>SpringBoard</code>, or set it to keep only warnings and worse (an iPhone talks a lot).</li>
+        </ol>
+      </>}
+      {how === 'app' && <>
+        <p className="connect-note">An iOS (or any) app with a Sentry SDK sends its crashes and errors to a project here, and — with logs switched on in the SDK — its log lines too, as a source named after the project.</p>
+        <ol className="connect-steps">
+          <li>Make a project for the app (<Link to="/projects?new=1">New project</Link>, platform Other) and copy its DSN.</li>
+          <li>In the app (Sentry Cocoa 8.55 or newer; in the newest SDKs it is <code>options.enableLogs</code>):
+            <CodeBlock code={`SentrySDK.start { options in
+    options.dsn = "<the project's DSN>"
+    options.experimental.enableLogs = true
+}
+
+SentrySDK.logger.info("Opened the chat", attributes: ["screen": "chat"])`} /></li>
+          <li>Errors become issues of that project; the lines land under Phones & devices with the project’s name.</li>
+        </ol>
+      </>}
+      {how === 'other' && <>
+        <p className="connect-note">Any computer or script with curl: a Mac’s or a laptop’s log, a job’s output, a Raspberry Pi. Text (one line each), NDJSON, or JSON.</p>
+        <ol className="connect-steps">
+          <li>Make an API token: <Link to="/settings/tokens">Settings → API tokens</Link>.</li>
+          <li>Pipe anything into the script (<code>curl -fsSL {base}/pocket-logs.sh -o pocket-logs.sh</code>):
+            <CodeBlock code={`export POCKET_ERRORS_URL=${base} POCKET_ERRORS_TOKEN=per_…
+log stream --style syslog | pocket-logs.sh macbook "MacBook"
+some-job 2>&1 | pocket-logs.sh nightly-job "Nightly job"`} /></li>
+          <li>Or send them yourself:
+            <CodeBlock code={`curl -X POST "${base}/api/v1/logs/push" \
+  -H "Authorization: Bearer per_…" -H "Content-Type: application/json" \
+  -d '{"source":"my-app","name":"My app","lines":[{"level":"error","message":"sync failed","fields":{"code":500}}]}'`} />
+            <span className="connect-note">Up to 1000 lines (1 MB) at a time; <code>at</code> is an RFC 3339 time (else now). Sent twice, a line is kept once.</span></li>
+        </ol>
+      </>}
+    </Card>
   )
 }

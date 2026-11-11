@@ -265,22 +265,25 @@ func FromMap(m map[string]any) *Event {
 	return ev
 }
 
-// ParseEnvelope reads a Sentry envelope and returns its error events
-// (transactions, sessions and the like are skipped) and the DSN its header
-// carries, if any.
-func ParseEnvelope(b []byte) ([]*Event, string, error) {
+// EnvelopeItem is one item of a Sentry envelope.
+type EnvelopeItem struct {
+	Type    string
+	Payload []byte
+}
+
+// ReadEnvelope splits a Sentry envelope into its header and items (as far
+// as they read well, with the error that stopped it).
+func ReadEnvelope(b []byte) (map[string]any, []EnvelopeItem, error) {
 	r := bufio.NewReaderSize(bytes.NewReader(b), 64<<10)
 	head, err := readLine(r)
 	if err != nil {
-		return nil, "", fmt.Errorf("empty envelope")
+		return nil, nil, fmt.Errorf("empty envelope")
 	}
 	var h map[string]any
 	if err := json.Unmarshal(head, &h); err != nil {
-		return nil, "", fmt.Errorf("bad envelope header")
+		return nil, nil, fmt.Errorf("bad envelope header")
 	}
-	dsn := str(h["dsn"])
-	headerID := cleanID(str(h["event_id"]))
-	var out []*Event
+	var items []EnvelopeItem
 	for {
 		line, err := readLine(r)
 		if err != nil {
@@ -291,37 +294,58 @@ func ParseEnvelope(b []byte) ([]*Event, string, error) {
 		}
 		var ih map[string]any
 		if err := json.Unmarshal(line, &ih); err != nil {
-			return out, dsn, fmt.Errorf("bad item header")
+			return h, items, fmt.Errorf("bad item header")
 		}
 		var payload []byte
 		if n, ok := ih["length"]; ok {
 			size := int(num(n))
 			if size < 0 || size > len(b) {
-				return out, dsn, fmt.Errorf("bad item length")
+				return h, items, fmt.Errorf("bad item length")
 			}
 			payload = make([]byte, size)
 			if _, err := ioReadFull(r, payload); err != nil {
-				return out, dsn, fmt.Errorf("short item")
+				return h, items, fmt.Errorf("short item")
 			}
 			_, _ = r.ReadByte() // the newline after it
 		} else {
 			payload, _ = readLine(r)
 		}
-		if t := str(ih["type"]); t == "event" || t == "error" {
-			ev, err := ParseSentryEvent(payload)
-			if err != nil {
-				continue
-			}
-			if ev.EventID == "" {
-				ev.EventID = headerID
-			}
-			out = append(out, ev)
+		items = append(items, EnvelopeItem{Type: str(ih["type"]), Payload: payload})
+	}
+	return h, items, nil
+}
+
+// ParseEnvelope reads a Sentry envelope and returns its error events
+// (transactions, sessions and the like are skipped) and the DSN its header
+// carries, if any.
+func ParseEnvelope(b []byte) ([]*Event, string, error) {
+	h, items, rerr := ReadEnvelope(b)
+	if h == nil {
+		return nil, "", rerr
+	}
+	dsn := str(h["dsn"])
+	headerID := cleanID(str(h["event_id"]))
+	var out []*Event
+	for _, it := range items {
+		if it.Type != "event" && it.Type != "error" {
+			continue
 		}
+		ev, err := ParseSentryEvent(it.Payload)
+		if err != nil {
+			continue
+		}
+		if ev.EventID == "" {
+			ev.EventID = headerID
+		}
+		out = append(out, ev)
 	}
 	if len(out) == 0 {
+		if rerr != nil {
+			return nil, dsn, rerr
+		}
 		return nil, dsn, ErrNoEvent
 	}
-	return out, dsn, nil
+	return out, dsn, rerr
 }
 
 func readLine(r *bufio.Reader) ([]byte, error) {

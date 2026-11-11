@@ -2,7 +2,7 @@
 import { api, V1 } from './api'
 
 export type LogLevel = 'debug' | 'info' | 'warning' | 'error' | 'fatal'
-export type LogGroup = 'pocket' | 'docker' | 'system' | 'user' | 'kernel'
+export type LogGroup = 'pocket' | 'docker' | 'system' | 'user' | 'kernel' | 'device'
 export type Keep = 'all' | 'warn' | 'error' | 'count'
 
 export interface LogLine {
@@ -21,7 +21,7 @@ export interface LogLine {
 
 export interface LogSource {
   id: number
-  kind: 'docker' | 'journal'
+  kind: 'docker' | 'journal' | 'device'
   name: string
   label: string
   group: LogGroup
@@ -105,13 +105,14 @@ export const LOG_LEVELS: { id: LogLevel; label: string; short: string }[] = [
 // the stack order of the volume bars: the bad ones sit on the baseline, where they are easiest to compare
 export const STACK: LogLevel[] = ['fatal', 'error', 'warning', 'info', 'debug']
 
-// source groups — categorical slots 1–5 in fixed order (validated: adjacent CVD ΔE ≥ 9.1 light, ≥ 8.4 dark)
+// source groups — categorical slots 1–6 in fixed order (validated: adjacent CVD ΔE ≥ 9.1 light, ≥ 8.4 dark)
 export const GROUPS: { id: LogGroup; label: string; icon: string; sub: string }[] = [
   { id: 'pocket', label: 'Pocket apps', icon: 'layers', sub: 'Containers named pocket-*' },
   { id: 'docker', label: 'Other containers', icon: 'package', sub: 'Everything else in Docker' },
   { id: 'system', label: 'System services', icon: 'server', sub: 'systemd units, from the journal' },
   { id: 'user', label: 'Your services', icon: 'user', sub: 'Your user’s systemd units (Pocket AI…)' },
   { id: 'kernel', label: 'Kernel', icon: 'zap', sub: 'The kernel’s own messages' },
+  { id: 'device', label: 'Phones & devices', icon: 'smartphone', sub: 'Sent from outside the box: a phone through a computer, a laptop, an app' },
 ]
 export const groupOf = (g: string) => GROUPS.find(x => x.id === g) || GROUPS[1]
 

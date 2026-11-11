@@ -30,7 +30,8 @@ import (
 //     so any Sentry SDK — browser, Go, Python, Node — sends here unchanged;
 //   - the plain JSON API: POST /api/v1/projects/{id}/events with a token;
 //   - Pocket apps through a Core link (errors:write): POST /api/v1/report,
-//     into a project named after the app.
+//     into a project named after the app; a phone or app with a person's
+//     token names its own project there (?source=).
 // The containers' logs (watch.go) come in through the same ingest.
 
 // defaultRate is how many events a project may send a minute; more are
@@ -316,6 +317,9 @@ func (s *Server) handleSentryEnvelope(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, code, map[string]string{"detail": msg})
 		return
 	}
+	if _, items, _ := intake.ReadEnvelope(b); len(items) > 0 {
+		s.keepSentryLogs(r.Context(), p, items)
+	}
 	if errors.Is(perr, intake.ErrNoEvent) {
 		writeJSON(w, http.StatusOK, map[string]string{})
 		return
@@ -363,34 +367,61 @@ func (s *Server) handleProjectEvent(w http.ResponseWriter, r *http.Request) {
 
 // handleReport is POST /report: an app reporting its own error through a
 // Pocket Core link (errors:write) goes to the project named after it,
-// made on its first error. With a person's own token, project_id says where.
+// made on its first error. With a person's own token (or a paired phone's),
+// project_id says where, or source (with name and platform) names the
+// sender's own project, made on its first error the same way.
 func (s *Server) handleReport(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	uid := actorID(ctx)
 	app := linkApp(ctx)
 	if app == "" {
-		pid, _ := toInt64(r.URL.Query().Get("project_id"))
+		q := r.URL.Query()
+		if src := strings.TrimSpace(q.Get("source")); q.Get("project_id") == "" && src != "" {
+			if !validSlug(src) {
+				writeErr(w, http.StatusBadRequest, "source is 2 to 48 lowercase letters, digits and dashes (not docker)")
+				return
+			}
+			p, err := s.sourceProject(ctx, uid, src, func() *store.Project {
+				return &store.Project{UserID: uid, Name: firstNonEmpty(clip(strings.TrimSpace(q.Get("name")), 100), src),
+					Platform: firstNonEmpty(clip(strings.TrimSpace(q.Get("platform")), 40), "cocoa"), Source: src, NotifyNew: true, NotifyAgain: true}
+			})
+			if err != nil {
+				s.fail(w, err, "project")
+				return
+			}
+			s.reportTo(w, r, p)
+			return
+		}
+		pid, _ := toInt64(q.Get("project_id"))
 		p, err := s.store.GetProject(ctx, uid, pid)
 		if err != nil {
-			writeErr(w, http.StatusBadRequest, "say which project (project_id); Pocket apps reporting through Pocket Core get one of their own")
+			writeErr(w, http.StatusBadRequest, "say which project (project_id) or name your own (source); Pocket apps reporting through Pocket Core get one of their own")
 			return
 		}
 		s.reportTo(w, r, p)
 		return
 	}
-	p, err := s.store.ProjectBySource(ctx, uid, app)
-	if errors.Is(err, store.ErrNotFound) {
-		name := s.appName(ctx, app)
-		p = &store.Project{UserID: uid, Name: name, Platform: "go", Source: app, AppSlug: app, NotifyNew: true, NotifyAgain: true}
-		if err = s.store.CreateProject(ctx, p); errors.Is(err, store.ErrConflict) {
-			p, err = s.store.ProjectBySource(ctx, uid, app)
-		}
-	}
+	p, err := s.sourceProject(ctx, uid, app, func() *store.Project {
+		return &store.Project{UserID: uid, Name: s.appName(ctx, app), Platform: "go", Source: app, AppSlug: app, NotifyNew: true, NotifyAgain: true}
+	})
 	if err != nil {
 		s.fail(w, err, "project")
 		return
 	}
 	s.reportTo(w, r, p)
+}
+
+// sourceProject is the person's project for a source, made (by mk) when
+// there is none yet; two first errors at once end in the same one.
+func (s *Server) sourceProject(ctx context.Context, uid int64, source string, mk func() *store.Project) (*store.Project, error) {
+	p, err := s.store.ProjectBySource(ctx, uid, source)
+	if errors.Is(err, store.ErrNotFound) {
+		p = mk()
+		if err = s.store.CreateProject(ctx, p); errors.Is(err, store.ErrConflict) {
+			p, err = s.store.ProjectBySource(ctx, uid, source)
+		}
+	}
+	return p, err
 }
 
 func (s *Server) reportTo(w http.ResponseWriter, r *http.Request, p *store.Project) {

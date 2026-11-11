@@ -8,7 +8,7 @@ Everything the web app does goes through `/api/v1`, with a session cookie or `Au
 | `POST /api/{project}/store/` · `POST /api/{project}/envelope/` | Sentry's protocol (any Sentry SDK with the project's DSN `https://KEY@host/ID`; key in `X-Sentry-Auth`, `?sentry_key=` or the envelope's `dsn`; gzip and deflate). Transactions, sessions and client reports are skipped. CORS open for browsers |
 | `GET /errors.js` | A small browser script: `<script src="…/errors.js" data-dsn="…" data-release="1.0.0">`; `PocketErrors.capture(err)`, `PocketErrors.message(text, level)` |
 | `POST /api/v1/projects/{id}/events` | With a token: Sentry's event shape, or simply `{message, level}` or `{type, value, stack}` (a stack as text: JavaScript, Python, Go, Java), plus `environment, release, user, tags, extra, fingerprint` |
-| `POST /api/v1/report` | A Pocket app through its Core link (`errors:write`): the same body, into a project named after the app |
+| `POST /api/v1/report` | A Pocket app through its Core link (`errors:write`): the same body, into a project named after the app. With a person's own token: `?project_id=`, or `?source=my-phone&name=My%20phone&platform=cocoa` for the sender's own project, made on its first error |
 
 Each project takes 600 errors a minute (its own number in its settings), then answers 429. Passwords, tokens, cookies and keys are filtered out before anything is kept; the app users' addresses too, unless switched off.
 
@@ -47,6 +47,8 @@ Every route takes `range` (`30m`, `24h`, `7d`; also `since`) or `from`/`to` (uni
 | `GET /api/v1/logs/sources`, `PUT /api/v1/logs/sources/{id}` | sources and their counts; `{"keep": "all" \| "warn" \| "error" \| "count"}` |
 | `GET /api/v1/logs/status`, `PUT /api/v1/logs/settings`, `POST /api/v1/logs/clear` | `{on, pattern, journal, keep_days, max_mb}` |
 | `GET /api/v1/logs/export.txt` | the matching lines as text (≤ 50,000) |
+| `POST /api/v1/logs/push` | lines from outside the box (a phone, a laptop, an app), with an admin's token: JSON `{"source": "my-phone", "name": "My phone", "lines": [{"at", "level", "message", "fields"}]}` (≤ 1000 lines, 1 MB), or text / NDJSON with `?source=&name=` (iPhone and BSD syslog lines keep their time and process). Group `device`; a line sent twice is kept once; a clock more than 10 min ahead is now, lines older than the logs keep are dropped |
+| `GET /pocket-logs.sh` | a script that sends what it reads on stdin: `idevicesyslog \| pocket-logs.sh iphone "iPhone"` on a Mac paired with the phone |
 | `GET /api/v1/issues/{id}/logs?event=` | what the issue's container wrote two minutes either side of an event |
 
 ## Everything else

@@ -3,13 +3,13 @@
    source groups are identities (categorical slots 1–5 in fixed order, validated for colour blindness in light and dark);
    the heat map is one hue light → dark. Every colour also has its word next to it. */
 :root {
-  --g1: #2a78d6; --g2: #eb6834; --g3: #1baf7a; --g4: #eda100; --g5: #e87ba4;
+  --g1: #2a78d6; --g2: #eb6834; --g3: #1baf7a; --g4: #eda100; --g5: #e87ba4; --g6: #008300;
   --lv-fatal: #8f1d14; --lv-error: #d03b3b; --lv-warning: #e09a00; --lv-info: #a7b0be; --lv-debug: #d5dae2;
   --web-2: #a7b0be; --web-3: #cfd5de; --web-4: #e09a00; --web-5: #d03b3b;
   --heat-lines: #2a78d6; --heat-errors: #d03b3b;
 }
 [data-theme="dark"] {
-  --g1: #3987e5; --g2: #d95926; --g3: #199e70; --g4: #c98500; --g5: #d55181;
+  --g1: #3987e5; --g2: #d95926; --g3: #199e70; --g4: #c98500; --g5: #d55181; --g6: #008300;
   --lv-fatal: #ff7a6e; --lv-error: #e05252; --lv-warning: #e0a100; --lv-info: #5d6675; --lv-debug: #3a404b;
   --web-2: #5d6675; --web-3: #434a56; --web-4: #e0a100; --web-5: #e05252;
   --heat-lines: #5598e7; --heat-errors: #e66767;
@@ -95,9 +95,9 @@
 .web-3.lc-bar, .sw.web-3 { fill: var(--web-3); background: var(--web-3); }
 .web-4.lc-bar, .sw.web-4 { fill: var(--web-4); background: var(--web-4); }
 .web-5.lc-bar, .sw.web-5 { fill: var(--web-5); background: var(--web-5); }
-.g1 { --g: var(--g1); } .g2 { --g: var(--g2); } .g3 { --g: var(--g3); } .g4 { --g: var(--g4); } .g5 { --g: var(--g5); }
+.g1 { --g: var(--g1); } .g2 { --g: var(--g2); } .g3 { --g: var(--g3); } .g4 { --g: var(--g4); } .g5 { --g: var(--g5); } .g6 { --g: var(--g6); }
 .gdot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--g, var(--faint)); flex-shrink: 0; }
-.sw.g1, .sw.g2, .sw.g3, .sw.g4, .sw.g5 { background: var(--g); }
+.sw.g1, .sw.g2, .sw.g3, .sw.g4, .sw.g5, .sw.g6 { background: var(--g); }
 
 /* heat map */
 .heat-label { font-size: 11.5px; fill: var(--text-2); }
@@ -285,3 +285,12 @@ mark { background: color-mix(in srgb, var(--star) 35%, transparent); color: inhe
 
 @media (max-width: 767px) { .wide-only { display: none; } }
 @media (max-width: 767px) { .logs-grid .card-head { flex-wrap: wrap; } }
+
+/* connecting a phone or computer */
+.connect .card-body { display: grid; gap: 12px; }
+.connect-steps { margin: 0; padding-left: 20px; display: grid; gap: 10px; color: var(--text-2); line-height: 1.55; }
+.connect-steps li::marker { color: var(--muted); font-weight: 600; }
+.code-block { position: relative; margin: 6px 0 0; }
+.code-block pre { margin: 0; padding: 10px 44px 10px 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; font-family: var(--mono); font-size: 12px; white-space: pre-wrap; word-break: break-all; color: var(--text); }
+.code-block button { position: absolute; top: 6px; right: 6px; }
+.connect-note { font-size: 12.5px; color: var(--muted); }

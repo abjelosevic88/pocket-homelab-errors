@@ -382,7 +382,8 @@ func (s *Server) handleLogExport(w http.ResponseWriter, r *http.Request) {
 	_ = bw.Flush()
 }
 
-// GET /issues/{id}/logs: the lines its container wrote around an event
+// GET /issues/{id}/logs: the lines its container (or the device that sent
+// it, when the project's source is a device's) wrote around an event
 // (event = an id, default the latest), for the issue page.
 func (s *Server) handleIssueLogs(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -410,11 +411,12 @@ func (s *Server) handleIssueLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var src *logs.Source
+	if p.Source != "" && p.Source != "docker" {
+		src = s.logs.SourceByKey("device", p.Source) // a phone that sends its lines too
+	}
 	for _, name := range []string{p.Container, ev.Data.ServerName, "pocket-" + p.AppSlug} {
-		if name != "" && name != "pocket-" {
-			if src = s.logs.SourceByName(name); src != nil {
-				break
-			}
+		if src == nil && name != "" && name != "pocket-" {
+			src = s.logs.SourceByName(name)
 		}
 	}
 	if src == nil {

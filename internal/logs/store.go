@@ -35,10 +35,10 @@ type DB struct {
 // Source is one container or service that writes lines.
 type Source struct {
 	ID      int64  `json:"id"`
-	Kind    string `json:"kind"`  // docker | journal
-	Name    string `json:"name"`  // the container, or the unit ("user:pocket-ai.service", "kernel")
+	Kind    string `json:"kind"`  // docker | journal | device
+	Name    string `json:"name"`  // the container, the unit ("user:pocket-ai.service", "kernel") or the device's slug
 	Label   string `json:"label"` // how it is shown
-	Group   string `json:"group"` // pocket | docker | system | user | kernel
+	Group   string `json:"group"` // pocket | docker | system | user | kernel | device
 	Image   string `json:"image,omitempty"`
 	Keep    string `json:"keep"` // all | warn | error | count
 	FirstAt int64  `json:"first_at"`
@@ -225,6 +225,17 @@ func (d *DB) SourceByName(name string) *Source {
 	return nil
 }
 
+// SourceByKey finds a source by its kind and name.
+func (d *DB) SourceByKey(kind, name string) *Source {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if s := d.sources[SourceKey(kind, name)]; s != nil {
+		c := *s
+		return &c
+	}
+	return nil
+}
+
 // AllSources lists the known sources.
 func (d *DB) AllSources() []Source {
 	d.mu.Lock()
@@ -297,9 +308,95 @@ func (d *DB) Write(ctx context.Context, entries []Entry) (int, error) {
 	if len(entries) == 0 {
 		return 0, nil
 	}
-	sort.SliceStable(entries, func(i, j int) bool { return entries[i].At.Before(entries[j].At) })
 	d.writeMu.Lock()
 	defer d.writeMu.Unlock()
+	return d.write(ctx, entries)
+}
+
+// WriteNew is Write for lines that may come twice (a phone sending a batch
+// again after its answer was lost): a line whose source already has one at
+// the same millisecond with the same message is skipped, as is the second
+// of two such in the batch. It returns the lines taken (counted, and kept
+// as the source's keep says), the lines kept and the ones skipped.
+func (d *DB) WriteNew(ctx context.Context, entries []Entry) (taken, kept, dup int, err error) {
+	if len(entries) == 0 {
+		return 0, 0, 0, nil
+	}
+	d.writeMu.Lock()
+	defer d.writeMu.Unlock()
+	times := map[int64]map[int64]bool{} // source → the batch's milliseconds
+	for _, e := range entries {
+		id := d.idOf(e.Source)
+		if id == 0 {
+			continue
+		}
+		if times[id] == nil {
+			times[id] = map[int64]bool{}
+		}
+		times[id][e.At.UnixMilli()] = true
+	}
+	seen := map[string]bool{}
+	for id, set := range times {
+		all := make([]int64, 0, len(set))
+		for ms := range set {
+			all = append(all, ms)
+		}
+		for i := 0; i < len(all); i += 400 {
+			chunk := all[i:min(i+400, len(all))]
+			args := []any{id}
+			for _, ms := range chunk {
+				args = append(args, ms)
+			}
+			rows, err := d.db.QueryContext(ctx, `SELECT at, msg FROM lines WHERE source_id = ? AND at IN (`+placeholders(len(chunk))+`)`, args...)
+			if err != nil {
+				return 0, 0, 0, err
+			}
+			for rows.Next() {
+				var at int64
+				var msg string
+				if rows.Scan(&at, &msg) == nil {
+					seen[itoa(id)+"|"+itoa(at)+"|"+msg] = true
+				}
+			}
+			rows.Close()
+			if err := rows.Err(); err != nil {
+				return 0, 0, 0, err
+			}
+		}
+	}
+	fresh := entries[:0:0]
+	for _, e := range entries {
+		id := d.idOf(e.Source)
+		if id == 0 {
+			continue
+		}
+		k := itoa(id) + "|" + itoa(e.At.UnixMilli()) + "|" + e.Msg
+		if seen[k] {
+			dup++
+			continue
+		}
+		seen[k] = true
+		fresh = append(fresh, e)
+	}
+	if len(fresh) == 0 {
+		return 0, 0, dup, nil
+	}
+	kept, err = d.write(ctx, fresh)
+	return len(fresh), kept, dup, err
+}
+
+// idOf is the id of the source with that key, 0 when it is not known.
+func (d *DB) idOf(key string) int64 {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if s := d.sources[key]; s != nil {
+		return s.ID
+	}
+	return 0
+}
+
+func (d *DB) write(ctx context.Context, entries []Entry) (int, error) {
+	sort.SliceStable(entries, func(i, j int) bool { return entries[i].At.Before(entries[j].At) })
 	r5 := map[rollKey][2]int{}
 	r60 := map[rollKey][2]int{}
 	w5 := map[webKey]webVal{}

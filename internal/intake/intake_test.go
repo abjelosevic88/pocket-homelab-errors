@@ -126,3 +126,46 @@ func TestLogReader(t *testing.T) {
 		t.Fatalf("warnings asked for: %v", evs)
 	}
 }
+
+// What the Pocket Homelab app sends from a phone comes through whole:
+// the stack, level, release, environment, tags, contexts, breadcrumbs,
+// time, id and fingerprint.
+func TestFromMapPhoneEvent(t *testing.T) {
+	at := time.Now().Add(-time.Minute).UTC().Truncate(time.Millisecond)
+	m := map[string]any{
+		"event_id": "5E0B6C1A-2F3D-4E5F-8A9B-0C1D2E3F4A5B", "timestamp": at.Format(time.RFC3339Nano),
+		"level": "error", "release": "1.0.0 (1411)", "environment": "personal",
+		"exception": map[string]any{"values": []any{map[string]any{"type": "DecodingError", "value": "keyNotFound(id)",
+			"stacktrace": map[string]any{"frames": []any{
+				map[string]any{"function": "load()", "module": "PocketHomelabKit", "filename": "NotesClient.swift", "lineno": 88, "in_app": true},
+				map[string]any{"function": "decode", "module": "Foundation", "filename": "JSONDecoder.swift", "lineno": 1, "in_app": false},
+			}}}}},
+		"tags":        map[string]any{"service": "notes", "screen": "NotesList"},
+		"contexts":    map[string]any{"os": map[string]any{"name": "iOS", "version": "26.1"}, "device": map[string]any{"model": "iPhone17,1"}, "app": map[string]any{"app_version": "1.0.0", "app_build": "1411"}},
+		"breadcrumbs": map[string]any{"values": []any{map[string]any{"timestamp": at.Add(-time.Second).Format(time.RFC3339Nano), "category": "navigation", "message": "opened Notes", "level": "info"}}},
+		"fingerprint": []any{"notes", "decode"},
+	}
+	ev := FromMap(m)
+	d := ev.Data
+	if ev.EventID != "5e0b6c1a2f3d4e5f8a9b0c1d2e3f4a5b" || !ev.At.Equal(at) || ev.Level != "error" || ev.Release != "1.0.0 (1411)" || ev.Environment != "personal" {
+		t.Fatalf("head: %q %v %q %q %q", ev.EventID, ev.At, ev.Level, ev.Release, ev.Environment)
+	}
+	if len(d.Exceptions) != 1 || d.Exceptions[0].Type != "DecodingError" || len(d.Exceptions[0].Frames) != 2 {
+		t.Fatalf("exception: %+v", d.Exceptions)
+	}
+	if f := d.Exceptions[0].Frames[0]; f.Function != "load()" || f.Module != "PocketHomelabKit" || f.File != "NotesClient.swift" || f.Line != 88 || !f.InApp || d.Exceptions[0].Frames[1].InApp {
+		t.Fatalf("frames: %+v", d.Exceptions[0].Frames)
+	}
+	if len(d.Tags) != 2 || d.Tags[0] != [2]string{"screen", "NotesList"} {
+		t.Fatalf("tags: %v", d.Tags)
+	}
+	if len(d.Contexts) != 3 || d.Contexts["os"][0] != [2]string{"name", "iOS"} || d.Contexts["device"][0] != [2]string{"model", "iPhone17,1"} || len(d.Contexts["app"]) != 2 {
+		t.Fatalf("contexts: %v", d.Contexts)
+	}
+	if len(d.Breadcrumbs) != 1 || d.Breadcrumbs[0].Category != "navigation" || d.Breadcrumbs[0].Message != "opened Notes" || d.Breadcrumbs[0].Level != "info" || d.Breadcrumbs[0].At == "" {
+		t.Fatalf("breadcrumbs: %+v", d.Breadcrumbs)
+	}
+	if strings.Join(d.Fingerprint, ",") != "notes,decode" {
+		t.Fatalf("fingerprint: %v", d.Fingerprint)
+	}
+}

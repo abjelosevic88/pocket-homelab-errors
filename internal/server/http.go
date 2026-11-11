@@ -30,6 +30,7 @@ func (s *Server) Router() http.Handler {
 
 	r.Get("/pocket-ask.js", s.core.AskWidget("errors"))
 	r.Get("/errors.js", s.handleErrorsJS)
+	r.Get("/pocket-logs.sh", s.handleForwardScript)
 
 	// Sentry's door: any Sentry SDK sends here with the project's DSN
 	for _, kind := range []string{"store", "envelope"} {
@@ -106,6 +107,7 @@ func (s *Server) Router() http.Handler {
 				r.Get("/logs/status", s.handleLogsStatus)
 				r.Put("/logs/settings", s.handlePutLogsSettings)
 				r.Post("/logs/clear", s.handleLogsClear)
+				r.Post("/logs/push", s.handleLogsPush)
 				r.Get("/logs/histogram", s.handleLogHistogram)
 				r.Get("/logs/overview", s.handleLogOverview)
 				r.Get("/logs/patterns", s.handleLogPatterns)
