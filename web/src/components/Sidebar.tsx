@@ -6,7 +6,7 @@ import { projectIcon } from '../lib/errors'
 import { Icon } from './icons'
 
 export function Sidebar({ onCreate, onNavigate }: { onCreate: () => void; onNavigate: () => void }) {
-  const { status, settings } = useApp()
+  const { status, settings, user } = useApp()
   const { summary, projects } = useData()
   const navigate = useNavigate()
   const loc = useLocation()
@@ -20,6 +20,7 @@ export function Sidebar({ onCreate, onNavigate }: { onCreate: () => void; onNavi
     { to: '/?status=resolved', label: 'Resolved', icon: 'check-circle', active: onIssues && st === 'resolved' && !q.get('project') },
     { to: '/?status=ignored', label: 'Ignored', icon: 'eye-off', active: onIssues && st === 'ignored' && !q.get('project') },
     { to: '/projects', label: 'Projects', icon: 'layers', active: path.startsWith('/projects') },
+    ...(user?.role === 'admin' ? [{ to: '/logs', label: 'Logs', icon: 'list', active: path.startsWith('/logs') }] : []),
   ]
   const list = (projects || []).filter(p => !p.archived)
   return (

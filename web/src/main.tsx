@@ -5,6 +5,7 @@ import './styles/base.css'
 import './styles/errors.css'
 import './styles/app.css'
 import './styles/settings.css'
+import './styles/logs.css'
 import { AppProvider, useApp } from './lib/app-context'
 import { Loading, ToastProvider } from './components/ui'
 import Layout from './components/Layout'
@@ -13,6 +14,7 @@ import Login from './pages/Login'
 import Issues from './pages/Issues'
 import IssuePage from './pages/IssuePage'
 import Projects, { ProjectPage } from './pages/Projects'
+import Logs from './pages/Logs'
 import Settings from './pages/Settings'
 
 function Gate({ children }: { children: React.ReactNode }) {
@@ -35,6 +37,7 @@ function App() {
         <Route path="/issues/:id" element={<IssuePage />} />
         <Route path="/projects" element={<Projects />} />
         <Route path="/projects/:id" element={<ProjectPage />} />
+        <Route path="/logs/:tab?" element={<Logs />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

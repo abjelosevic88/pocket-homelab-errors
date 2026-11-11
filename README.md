@@ -1,6 +1,6 @@
 <p align="center"><img src="web/public/favicon.svg" width="72" alt=""></p>
 <h1 align="center">Pocket Errors</h1>
-<p align="center">Error tracking for your apps and websites: what broke, where in the code, how often, for how many people and since which release. Any Sentry SDK sends to it unchanged, a website needs one script line, Pocket apps report through Pocket Core — and it can read this box's container logs for errors and panics with nothing to install. Errors that are the same problem become one issue you resolve, ignore or send to Pocket Projects; Pocket AI explains what went wrong and how to fix it.<br>One Go binary, one SQLite file, one volume. Part of the Pocket apps; works on its own too.</p>
+<p align="center">Error tracking for your apps and websites: what broke, where in the code, how often, for how many people and since which release. Any Sentry SDK sends to it unchanged, a website needs one script line, Pocket apps report through Pocket Core — and it can read this box's container logs for errors and panics with nothing to install. Errors that are the same problem become one issue you resolve, ignore or send to Pocket Projects; Pocket AI explains what went wrong and how to fix it. <b>Logs</b> keeps every line the box's containers and services write — to search, follow live and chart.<br>One Go binary, SQLite, one volume. Part of the Pocket apps; works on its own too.</p>
 <p align="center">
   <a href="https://github.com/abjelosevic88/pocket-homelab-errors/actions"><img src="https://github.com/abjelosevic88/pocket-homelab-errors/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
   <a href="https://github.com/abjelosevic88/pocket-homelab-errors/pkgs/container/pocket-homelab-errors"><img src="https://img.shields.io/badge/ghcr.io-amd64%20%7C%20arm64%20%7C%20armv7-blue" alt="image"></a>
@@ -29,6 +29,22 @@
     <td align="center"><sub>Light and dark follow the system.</sub></td>
   </tr>
   <tr>
+    <td width="50%"><img src="docs/screenshots/desktop-logs.png" alt="Logs: the overview"></td>
+    <td width="50%"><img src="docs/screenshots/desktop-logs-explore.png" alt="Logs: reading the lines"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Logs: lines by level over time, where they come from, a heat map of errors per source, what repeats, what is new.</sub></td>
+    <td align="center"><sub>Search every line, follow them live, read the lines around one.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/desktop-logs-web.png" alt="Web traffic from Caddy"></td>
+    <td width="50%"><img src="docs/screenshots/phone-logs.png" alt="Logs on a phone"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Web traffic from Caddy's access log: answers, failures and times per site.</sub></td>
+    <td align="center"><sub>Logs on the phone.</sub></td>
+  </tr>
+  <tr>
     <td width="50%"><img src="docs/screenshots/phone-issues.png" alt="Issues on a phone"></td>
     <td width="50%"><img src="docs/screenshots/phone-stack.png" alt="A stack on a phone"></td>
   </tr>
@@ -45,6 +61,7 @@
 - **Every issue**: the stack with your own frames first and the library ones folded, code around the line, the clicks, pages and requests before it, the request, the app's user, tags with how they spread, browser and OS, releases first and last seen; event by event.
 - **Resolve, ignore, come back**: a resolved issue that happens again is open and marked *back*; ignore for an hour, a day, a week, a month or for good.
 - **This box's containers** (admins, the Docker socket mounted read-only): every 15 seconds the logs of `pocket-*` (or whatever names you pick) are read for structured error lines, JSON logs, Go panics and Python tracebacks — every Pocket app's server errors, nothing to change in them. Each container gets its project with its first error.
+- **Logs** (admins, box-wide; Settings → This box): every line of every container (the same read, Docker is asked once) and, with the journal mounted, of the system and user services and the kernel. Kept in its own `logs.db` with full-text search (words, “phrases”, -not), 7 days and at most 2 GB by default (oldest first). **Overview**: lines by level over time (drag to zoom), the share per kind of source, the busiest and worst sources, a heat map of errors per source by time, the messages that repeat (values taken out) and the ones that are new. **Explore**: search and filter by source, level and time, live every 3 seconds, the fields a line logged, the lines around it, *same message*, export. **Web traffic**: Caddy's access log as requests, failures (5xx), refusals, answer times and slow requests per site. **Sources**: per container or unit, keep every line, only warnings and worse, only errors, or only count it. An issue from a container shows what it wrote two minutes either side. Counts stay 90 days.
 - **Telling you**: a new issue, one that came back, one happening a lot — per project — through Pocket Alerts (your rules and quiet hours) or your own ntfy/Apprise push; at most 30 an hour.
 - **Safe to keep**: passwords, tokens, cookies and keys are filtered out before anything is stored; the app users' addresses too (switch-off-able). 600 errors a minute per project, the newest 200 events per issue, kept 30 days (your choice); counts stay.
 - **Pocket AI** (only when you press it): *Explain* — what happened, the likely cause, where to look, how to fix it; *Sum up* — the last 24 hours in a few sentences.
@@ -58,7 +75,7 @@ docker run -d --name pocket-errors -p 8080:8080 -v ./data:/data \
   ghcr.io/abjelosevic88/pocket-homelab-errors:latest
 ```
 
-or `docker compose up -d` with [docker-compose.yml](docker-compose.yml) (add `-v /var/run/docker.sock:/var/run/docker.sock:ro` to have the containers read). Open it, create the first account, make a project and paste its line. All options: [docs/configuration.md](docs/configuration.md). API: [docs/api.md](docs/api.md). Backups: [docs/backup.md](docs/backup.md).
+or `docker compose up -d` with [docker-compose.yml](docker-compose.yml) (add `-v /var/run/docker.sock:/var/run/docker.sock:ro` to have the containers read, and `-v /var/log/journal:/host/journal:ro` with the `systemd-journal` group for the services' lines in Logs). Open it, create the first account, make a project and paste its line. All options: [docs/configuration.md](docs/configuration.md). API: [docs/api.md](docs/api.md). Backups: [docs/backup.md](docs/backup.md).
 
 ## With Pocket Core
 
@@ -72,7 +89,7 @@ Set `CORE_URL` and `CORE_REGISTRATION_KEY` and Errors joins the box: people sign
 
 **Nothing depends on another app.** Each connection is checked per person and greyed with what to do, never hidden; without Core each can be connected directly with a URL and a token.
 
-Other apps use your errors through `errors:read` and `errors:write`: Pocket AI answers “what broke today?” (`pocket_errors_*` tools in Pocket Core), Pocket Day can show the day (`GET /day/{date}`), Pocket Search finds issues, and any Pocket app can report its own errors (`POST /report`) into a project named after it. Events `errors.issue_new`, `errors.issue_regressed`, `errors.issue_spike` and `errors.issue_resolved` start flows in Pocket Flows.
+Other apps use your errors through `errors:read` and `errors:write`: Pocket AI answers “what broke today?” and, for an admin, “what did the box log about it?” (`pocket_errors_*` tools in Pocket Core: issues, and `logs`, `log_overview`, `log_patterns`, `log_web`, `log_sources`, `log_context`, `issue_logs`), Pocket Day can show the day (`GET /day/{date}`), Pocket Search finds issues, and any Pocket app can report its own errors (`POST /report`) into a project named after it. Events `errors.issue_new`, `errors.issue_regressed`, `errors.issue_spike` and `errors.issue_resolved` start flows in Pocket Flows.
 
 ## Develop
 

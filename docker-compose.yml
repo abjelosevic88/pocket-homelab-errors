@@ -21,7 +21,10 @@ services:
       - ./data:/data
       # Read this box's containers' logs for errors (Settings → This box). Optional.
       # - /var/run/docker.sock:/var/run/docker.sock:ro
-    # the socket belongs to the docker group: its id on your host (getent group docker)
-    # group_add: ["999"]
+      # Logs: the services' and the kernel's lines from the journal, too. Optional.
+      # - /var/log/journal:/host/journal:ro
+    # the socket belongs to the docker group, the journal to systemd-journal: their ids on your host
+    # (getent group docker systemd-journal)
+    # group_add: ["999", "998"]
     extra_hosts:
       - "host.docker.internal:host-gateway"

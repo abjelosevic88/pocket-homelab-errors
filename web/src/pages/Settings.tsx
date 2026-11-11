@@ -5,7 +5,8 @@ import { api, V1 } from '../lib/api'
 import { useApp } from '../lib/app-context'
 import type { APIToken, AppSlug, AppState, ConnMode, Settings as SettingsT, User } from '../lib/types'
 import { DATE_FORMATS, TIME_FORMATS, ago, fmtBytes, fmtDateTime, plural, type DateFormat, type TimeFormat } from '../lib/format'
-import { Avatar, Confirm, CoreHint, Field, Loading, Modal, Segmented, SettingRow, Switch, Tabs, useAsync, useIsMobile, useToast } from '../components/ui'
+import { logsApi, type LogSettings, type LogStatus } from '../lib/logs'
+import { errMsg, Avatar, Confirm, CoreHint, Field, Loading, Modal, Segmented, SettingRow, Switch, Tabs, useAsync, useIsMobile, useToast } from '../components/ui'
 import { Icon } from '../components/icons'
 import { Select } from '../components/Select'
 import { ShortcutsSheet } from '../components/ShortcutsSheet'
@@ -214,7 +215,47 @@ function Box() {
           {!matching.length && <li className="muted">No running container matches.</li>}
         </ul>
       </Section>}
+      {w.admin && <LogsSettings />}
     </div>
+  )
+}
+
+/** Keeping every line (box-wide, admins): on/off, which containers, the journal, how long and how much. */
+function LogsSettings() {
+  const { toast } = useToast()
+  const [st, setSt] = useState<LogStatus | null>(null)
+  const [pattern, setPattern] = useState('')
+  const [clear, setClear] = useState(false)
+  const load = () => logsApi.status().then(x => { setSt(x); setPattern(x.settings.pattern) }).catch(e => toast(errMsg(e), 'err'))
+  useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  if (!st) return <Loading />
+  const s = st.settings
+  const put = async (v: Partial<LogSettings>) => {
+    try { const n = await logsApi.saveSettings(v); setSt({ ...st, settings: n }); toast('Saved') } catch (e) { toast(errMsg(e), 'err') }
+  }
+  const j = st.journal
+  return (
+    <Section title="Keep every line (Logs)" icon="list" sub="Besides the errors, keep every line the containers and this box’s services write: search them, follow them live and see them charted in Logs. Box-wide; only admins see the lines. Kept in its own file (logs.db), so a busy day never slows the issues down."
+      actions={s.on ? <a className="btn ghost sm" href="/logs">Open Logs</a> : undefined}>
+      <SettingRow title="Keep the lines"><Switch checked={s.on} onChange={v => put({ on: v })} label="Keep every line" /></SettingRow>
+      <SettingRow title="Which containers" help="Names, * for all, commas between. The error reading above has its own list.">
+        <div className="row"><input value={pattern} onChange={e => setPattern(e.target.value)} placeholder="*" /><button type="button" className="btn" onClick={() => put({ pattern })}>Save</button></div>
+      </SettingRow>
+      <SettingRow title="The journal too" help={j.available ? <>System and user services (Pocket AI too) and the kernel, from the journal. {j.running ? <>Reading — {j.lines.toLocaleString()} lines since start.</> : j.error ? <span className="warn-text">{j.error}</span> : s.on && s.journal ? 'Starting…' : ''}</> : <span className="warn-text">{j.error || 'Not available here.'} Mount it read-only: <code>/var/log/journal:/host/journal:ro</code>, and add the systemd-journal group under <code>group_add</code>.</span>}>
+        <Switch checked={s.journal} disabled={!j.available} onChange={v => put({ journal: v })} label="Read the journal" />
+      </SettingRow>
+      <SettingRow title="Keep lines for" help="Counts per hour, repeating messages and web traffic stay 90 days, after the lines are gone.">
+        <Select ariaLabel="Keep lines for" value={String(s.keep_days)} onChange={v => put({ keep_days: Number(v) })} options={[1, 3, 7, 14, 30, 60, 90].map(d => ({ value: String(d), label: plural(d, 'day') }))} />
+      </SettingRow>
+      <SettingRow title="At most" help={<>Uses {fmtBytes(st.storage.used)} now for {st.storage.lines.toLocaleString()} lines. When it is full the oldest lines go first.</>}>
+        <Select ariaLabel="At most" value={String(s.max_mb)} onChange={v => put({ max_mb: Number(v) })} options={[256, 512, 1024, 2048, 4096, 8192, 16384].map(m => ({ value: String(m), label: fmtBytes(m * 1048576) }))} />
+      </SettingRow>
+      <SettingRow title="Clear the logs" help="Drops every kept line and count. What to keep of each source stays.">
+        <button type="button" className="btn danger-ghost" onClick={() => setClear(true)}>Clear…</button>
+      </SettingRow>
+      {clear && <Confirm title="Clear every log line?" message="Every kept line, count and repeating message goes. New lines keep coming." confirmLabel="Clear" onCancel={() => setClear(false)}
+        onConfirm={async () => { setClear(false); try { await logsApi.clear(); toast('Logs cleared'); load() } catch (e) { toast(errMsg(e), 'err') } }} />}
+    </Section>
   )
 }
 

@@ -22,9 +22,13 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
     go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o /out/pocket-errors ./cmd/pocket-errors
 
 # ---------- 3. runtime ----------
-FROM alpine:3.21
-RUN apk add --no-cache ca-certificates tzdata curl \
- && addgroup -g 1000 app && adduser -u 1000 -G app -D -h /data app
+# Debian, for journalctl: Logs reads the host's journal (mounted read-only at /host/journal)
+FROM debian:trixie-slim
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates tzdata curl systemd \
+ && rm -rf /var/lib/apt/lists/* /usr/share/doc /usr/share/man \
+ && groupadd -g 1000 app && useradd -u 1000 -g app -d /data -M -s /usr/sbin/nologin app \
+ && mkdir -p /data && chown app:app /data
 COPY --from=build /out/pocket-errors /usr/local/bin/pocket-errors
 ENV DATA_DIR=/data PORT=8080 HOST=0.0.0.0
 VOLUME ["/data"]
@@ -33,7 +37,7 @@ USER app
 WORKDIR /data
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 CMD curl -fsS http://localhost:8080/healthz || exit 1
 LABEL org.opencontainers.image.title="Pocket Errors" \
-      org.opencontainers.image.description="Error tracking for your apps and websites: any Sentry SDK sends here, Pocket apps through Pocket Core, and this box's container logs are read for errors and panics. Grouped into issues you resolve, ignore or send to Pocket Projects; Pocket AI explains them. One Go binary, one SQLite file, one volume." \
+      org.opencontainers.image.description="Error tracking and logs for your apps and websites: any Sentry SDK sends here, Pocket apps through Pocket Core, and this box's container logs are read for errors and panics. Grouped into issues you resolve, ignore or send to Pocket Projects; Pocket AI explains them. Logs keeps every line of the containers and the journal to search, follow live and chart. One Go binary, SQLite, one volume." \
       org.opencontainers.image.source="https://github.com/abjelosevic88/pocket-homelab-errors" \
       org.opencontainers.image.licenses="MIT"
 ENTRYPOINT ["pocket-errors"]

@@ -102,6 +102,20 @@ func (s *Server) Router() http.Handler {
 				r.Post("/report", s.handleReport)
 				r.Get("/watch", s.handleWatch)
 
+				r.Get("/logs", s.handleLogLines)
+				r.Get("/logs/status", s.handleLogsStatus)
+				r.Put("/logs/settings", s.handlePutLogsSettings)
+				r.Post("/logs/clear", s.handleLogsClear)
+				r.Get("/logs/histogram", s.handleLogHistogram)
+				r.Get("/logs/overview", s.handleLogOverview)
+				r.Get("/logs/patterns", s.handleLogPatterns)
+				r.Get("/logs/web", s.handleLogWeb)
+				r.Get("/logs/sources", s.handleLogSources)
+				r.Put("/logs/sources/{id}", s.handlePutLogSource)
+				r.Get("/logs/lines/{id}/context", s.handleLogContext)
+				r.Get("/logs/export.txt", s.handleLogExport)
+				r.Get("/issues/{id}/logs", s.handleIssueLogs)
+
 				r.Get("/apps", s.handleApps)
 
 				r.Get("/ai/status", s.handleAIStatus)

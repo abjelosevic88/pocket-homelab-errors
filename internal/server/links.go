@@ -17,7 +17,7 @@ import (
 // in linkRoutes stays closed to it (403).
 
 var linkOffers = []core.Offer{
-	{Scope: "errors:read", Name: "See your errors", Description: "Read your projects, the issues they have (what broke, where, how often, since when, whether resolved) and their latest events with the stack — for your journal (\"what broke today\"), search, dashboards and Pocket AI."},
+	{Scope: "errors:read", Name: "See your errors", Description: "Read your projects, the issues they have (what broke, where, how often, since when, whether resolved), their latest events with the stack and, for an admin, this box's log lines (search, counts, repeating messages, web traffic) — for your journal (\"what broke today\"), search, dashboards and Pocket AI."},
 	{Scope: "errors:write", Name: "Send errors and close issues", Description: "Report an app's own errors here (they go to a project named after that app) and resolve, ignore or reopen the issues of that project. It changes nothing else."},
 }
 
@@ -31,7 +31,9 @@ var linkRoutes = []linkRoute{
 	{"GET", regexp.MustCompile(`^/api/v1/auth/me$`), ""},
 	{"GET", regexp.MustCompile(`^/api/v1/(summary|search|issues|projects|day/\d{4}-\d{2}-\d{2})$`), "errors:read"},
 	{"GET", regexp.MustCompile(`^/api/v1/(issues|projects)/\d+$`), "errors:read"},
-	{"GET", regexp.MustCompile(`^/api/v1/issues/\d+/(events|events/\d+|latest|hours)$`), "errors:read"},
+	{"GET", regexp.MustCompile(`^/api/v1/issues/\d+/(events|events/\d+|latest|hours|logs)$`), "errors:read"},
+	// the box's log lines: admins only (checked in the handlers)
+	{"GET", regexp.MustCompile(`^/api/v1/logs(/(status|histogram|overview|patterns|web|sources|lines/\d+/context))?$`), "errors:read"},
 	{"POST", regexp.MustCompile(`^/api/v1/report$`), "errors:write"},
 	{"POST", regexp.MustCompile(`^/api/v1/issues/\d+/status$`), "errors:write"},
 	{"POST", regexp.MustCompile(`^/api/v1/issues/status$`), "errors:write"},

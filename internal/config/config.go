@@ -7,6 +7,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -55,6 +56,10 @@ type Config struct {
 	// DockerSocket is where the Docker Engine answers; when it is mounted,
 	// admins can have this box's containers' logs watched for errors.
 	DockerSocket string
+	// LogsPath is the logs database (every line kept), JournalDir the
+	// host's journal mounted in (read-only) for the services' lines.
+	LogsPath   string
+	JournalDir string
 
 	// IngestURL is the address apps on this box send errors to when it
 	// differs from BASE_URL (another container reaching this one); "" =
@@ -153,6 +158,8 @@ func Load() (*Config, error) {
 		NotifyURL:     env("NOTIFY_URL", ""),
 		NotifyFormat:  strings.ToLower(env("NOTIFY_FORMAT", "")),
 		DockerSocket:  env("DOCKER_SOCKET", "/var/run/docker.sock"),
+		LogsPath:      env("LOGS_DB_PATH", filepath.Join(dataDir, "logs.db")),
+		JournalDir:    env("JOURNAL_DIR", "/host/journal"),
 		IngestURL:     strings.TrimRight(env("INGEST_URL", ""), "/"),
 
 		UserAgent: env("USER_AGENT", "PocketErrors/1.0 (+https://github.com/abjelosevic88/pocket-homelab-errors)"),

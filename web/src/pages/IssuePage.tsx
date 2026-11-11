@@ -13,6 +13,7 @@ import { Icon } from '../components/icons'
 import { Select } from '../components/Select'
 import { type Anchor, Confirm, copyText, Empty, errMsg, Field, Loading, Menu, type MenuItem, Modal, modalOpen, rectOf, Segmented, Spinner, useIsMobile, useToast } from '../components/ui'
 import { useCrumb } from '../components/Layout'
+import { lineTime, type LogLine, type LogSource } from '../lib/logs'
 
 export default function IssuePage() {
   const { id } = useParams()
@@ -260,7 +261,42 @@ function EventView({ issue }: { issue: IssueView }) {
         <button type="button" className="btn sm" disabled={!page.older} onClick={() => setEid(page.older)} title="Older (J)">Older<Icon name="chevron-right" size={14} /></button>
       </div>
       {!ev ? <p className="muted pad">The events of this issue were tidied away (Settings → General → Keep events); the counts stay.</p> : <EventBody ev={ev} />}
+      {ev && <AroundLogs issue={issue.id} event={ev.id} />}
     </section>
+  )
+}
+
+/** The lines the app's container wrote around this event (from Logs, admins). */
+function AroundLogs({ issue, event }: { issue: number; event: number }) {
+  const [data, setData] = useState<{ lines: LogLine[]; source: LogSource | null; hit?: number; at?: number; admin: boolean; on: boolean } | null>(null)
+  const [open, setOpen] = useState(false)
+  useEffect(() => { api.get<typeof data>(`${V1}/issues/${issue}/logs?event=${event}`).then(setData).catch(() => setData(null)) }, [issue, event])
+  const hitRef = useCallback((el: HTMLDivElement | null) => { if (el && open) el.scrollIntoView({ block: 'center' }) }, [open])
+  if (!data || !data.admin || !data.source || !data.lines.length) return null
+  const bad = data.lines.filter(l => l.level === 'error' || l.level === 'fatal').length
+  const at = data.at || 0
+  return (
+    <div className="issue-logs">
+      <button type="button" className="sect-toggle" onClick={() => setOpen(o => !o)} aria-expanded={open}>
+        <Icon name={open ? 'chevron-down' : 'chevron-right'} size={14} />
+        <b>Everything {data.source.label} wrote around it</b>
+        <span className="muted small">{data.lines.length} lines, 2 minutes either side{bad ? ` · ${bad} errors` : ''}</span>
+        <Link className="btn ghost sm" to={`/logs/explore?source=${data.source.id}&from=${at - 5 * 60e3}&to=${at + 5 * 60e3}`} onClick={e => e.stopPropagation()}>Open in Logs</Link>
+      </button>
+      {open && (
+        <div className="log-view">
+          {data.lines.map(l => (
+            <div key={l.id} ref={l.id === data.hit ? hitRef : undefined} className={`log-row lv-${l.level} ${l.id === data.hit ? 'hit' : ''}`}>
+              <div className="log-line static">
+                <span className="log-t tnum">{lineTime(l.at).clock}</span>
+                <span className={`lvtag lv-${l.level}`}>{l.level.slice(0, 3).toUpperCase()}</span>
+                <span className="log-msg">{l.msg}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 

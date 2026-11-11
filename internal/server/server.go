@@ -16,6 +16,7 @@ import (
 
 	core "github.com/abjelosevic88/pocket-homelab-core/sdk"
 	"github.com/abjelosevic88/pocket-homelab-errors/internal/config"
+	"github.com/abjelosevic88/pocket-homelab-errors/internal/logs"
 	"github.com/abjelosevic88/pocket-homelab-errors/internal/store"
 )
 
@@ -40,6 +41,11 @@ type Server struct {
 	told   map[int64]*minuteCount // notifications an hour per person
 
 	docker  *dockerClient
+	tickMu  sync.Mutex
+	tick    *tickReads
+	logs    *logs.DB
+	journal *logs.Journal
+	logColl *logCollector
 	watchMu sync.Mutex
 	watch   map[int64]*watchState // per person: the containers read and how it went
 
@@ -68,7 +74,8 @@ func New(cfg *config.Config, st *store.Store, log *slog.Logger, webFS fs.FS) *Se
 		core:     core.New(cfg.CoreURL, core.Options{DB: st.DB, TokenFile: cfg.DataDir + "/core.token", UserAgent: cfg.UserAgent}),
 		resolved: map[string]resolvedURL{}, aiSem: make(chan struct{}, 3), statusCache: map[string]cachedState{},
 		rate: map[int64]*minuteCount{}, told: map[int64]*minuteCount{}, watch: map[int64]*watchState{},
-		docker: newDockerClient(cfg.DockerSocket)}
+		docker: newDockerClient(cfg.DockerSocket), journal: &logs.Journal{Dir: cfg.JournalDir},
+		logColl: &logCollector{pos: map[string]time.Time{}, prev: map[string]int{}}}
 }
 
 // Bootstrap seeds the first admin (if configured), the owner's integration
@@ -76,6 +83,13 @@ func New(cfg *config.Config, st *store.Store, log *slog.Logger, webFS fs.FS) *Se
 func (s *Server) Bootstrap(ctx context.Context) error {
 	if err := s.core.Start(ctx); err != nil {
 		return err
+	}
+	if s.logs == nil {
+		ld, err := logs.Open(s.cfg.LogsPath, s.log)
+		if err != nil {
+			return fmt.Errorf("open the logs database: %w", err)
+		}
+		s.logs = ld
 	}
 	n, err := s.store.CountUsers(ctx)
 	if err != nil {
@@ -105,6 +119,7 @@ func (s *Server) Bootstrap(ctx context.Context) error {
 	_ = s.store.PurgeSessions(ctx)
 	go s.janitor(ctx)
 	go s.watchLoop(ctx)
+	go s.logsLoop(ctx)
 	if s.core.Configured() {
 		go s.coreLoop(ctx)
 	}
@@ -150,6 +165,9 @@ func (s *Server) ownerReady(ctx context.Context, owner int64) error {
 	}
 	if s.cfg.DemoData {
 		if err := s.seedDemo(ctx, owner); err != nil {
+			return err
+		}
+		if err := s.seedDemoLogs(ctx); err != nil {
 			return err
 		}
 	}

@@ -15,6 +15,8 @@ Environment variables; every one has a default. Personal settings (how long even
 | `OPENAI_API_KEY` / `OPENAI_MODEL` / `OPENAI_BASE_URL` | – | AI without Pocket Core |
 | `NOTIFY_URL` / `NOTIFY_FORMAT` | – | The owner's push (ntfy, Apprise or JSON) |
 | `DOCKER_SOCKET` | `/var/run/docker.sock` | Where the Docker Engine answers; mount it to have this box's containers' logs read (Settings → This box, admins). Only container lists and logs are read |
+| `LOGS_DB_PATH` | `DATA_DIR/logs.db` | Logs: where every kept line lives (its own SQLite file, apart from the issues) |
+| `JOURNAL_DIR` | `/host/journal` | Logs: the host's journal mounted read-only (`/var/log/journal:/host/journal:ro`, plus the `systemd-journal` group under `group_add`) for system and user services and the kernel |
 | `INGEST_URL` | `CORE_APP_URL` when it differs from `BASE_URL` | The address other containers on this box send errors to; shown as a second DSN |
 | `CORE_URL` / `CORE_REGISTRATION_KEY` / `CORE_APP_URL` | – | Pocket Core |
 | `TRUST_PROXY` | `true` | Take the client address from `X-Forwarded-For` |

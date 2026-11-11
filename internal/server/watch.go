@@ -25,7 +25,7 @@ import (
 // the app ("pocket-notes" → "Pocket Notes"); archiving that project stops
 // reading it. Old logs are not read: only what comes after it is switched on.
 
-const watchEvery = 15 * time.Second
+const watchEvery = 10 * time.Second
 
 type watchState struct {
 	On         bool               `json:"on"`
@@ -55,6 +55,8 @@ func (s *Server) watchLoop(ctx context.Context) {
 			return
 		case <-t.C:
 		}
+		s.newTick()
+		s.collectLogs(ctx)
 		ids, err := s.store.SettingsUsers(ctx)
 		if err != nil {
 			continue
@@ -116,7 +118,7 @@ func (s *Server) watchOnce(ctx context.Context, uid int64, st store.Settings) {
 		fail("The Docker socket is not here: mount /var/run/docker.sock into the container (read-only is enough)")
 		return
 	}
-	cs, err := s.docker.containers(ctx)
+	cs, err := s.tickContainers(ctx)
 	if err != nil {
 		fail("Docker did not answer: " + err.Error())
 		return
@@ -174,7 +176,7 @@ func (s *Server) readContainer(ctx context.Context, uid int64, w *watchState, c 
 		since = time.Now().Add(-time.Hour)
 	}
 	rd.Warnings = p != nil && p.MinLevel == "warning"
-	lines, err := s.docker.logs(ctx, c.ID, sinceArg(since), 4<<20)
+	lines, err := s.tickLogs(ctx, c.ID, since)
 	if err != nil {
 		s.log.Debug("reading a container's logs failed", "container", c.Name, "err", err)
 		return
