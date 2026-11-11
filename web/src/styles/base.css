@@ -213,7 +213,7 @@ input.bare, textarea.bare { border-color: transparent; background: transparent; 
 .select-pop:focus { outline: none; }
 .select-search { display: flex; align-items: center; gap: 8px; padding: 0 10px; border-bottom: 1px solid var(--border); color: var(--muted); }
 .select-search input { border: 0; box-shadow: none; padding: 0; height: 40px; background: transparent; }
-.select-list { overflow-y: auto; padding: 4px; overscroll-behavior: contain; }
+.select-list { overflow-y: auto; padding: 4px; overscroll-behavior-x: contain; }
 .select-group { font-size: 11px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: var(--faint); padding: 8px 8px 4px; }
 .select-option { display: flex; align-items: center; gap: 9px; padding: 7px 8px; border-radius: 6px; cursor: pointer; font-size: 13.5px; min-height: 32px; }
 .select-option.hi { background: var(--hover); }
@@ -257,7 +257,7 @@ input.bare, textarea.bare { border-color: transparent; background: transparent; 
 .switch:disabled { opacity: .5; cursor: default; }
 
 /* tabs & segmented */
-.tabs { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+.tabs { display: flex; gap: 2px; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: none; }
 .tabs::-webkit-scrollbar { display: none; }
 .tabs button { display: inline-flex; align-items: center; gap: 7px; background: none; border: 0; padding: 7px 11px; border-radius: 8px; color: var(--muted); cursor: pointer; white-space: nowrap; font-weight: 550; font-size: 13.5px; }
 .tabs button:hover { background: var(--hover); color: var(--text); }
