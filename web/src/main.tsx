@@ -16,6 +16,7 @@ import IssuePage from './pages/IssuePage'
 import Projects, { ProjectPage } from './pages/Projects'
 import Logs from './pages/Logs'
 import Settings from './pages/Settings'
+import HubReport from './components/HubReport'
 
 function Gate({ children }: { children: React.ReactNode }) {
   const { status, user } = useApp()
@@ -47,7 +48,7 @@ function App() {
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
-      <ErrorBoundary where="app"><ToastProvider><AppProvider><App /></AppProvider></ToastProvider></ErrorBoundary>
+      <ErrorBoundary where="app"><ToastProvider><AppProvider><HubReport /><App /></AppProvider></ToastProvider></ErrorBoundary>
     </BrowserRouter>
   </React.StrictMode>,
 )
