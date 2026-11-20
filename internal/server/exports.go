@@ -257,5 +257,10 @@ func (s *Server) importDoc(ctx context.Context, uid int64, doc exportDoc) (map[s
 			}
 		}
 	}
-	return map[string]any{"added": added, "same": same}, nil
+	// the counts nested (for the page) and at the top level (what Pocket Move shows)
+	out := map[string]any{"added": added, "same": same}
+	for k, v := range added {
+		out[k] = v
+	}
+	return out, nil
 }

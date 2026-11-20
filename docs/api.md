@@ -54,5 +54,7 @@ Every route takes `range` (`30m`, `24h`, `7d`; also `since`) or `from`/`to` (uni
 ## Everything else
 `GET /export.json` · `POST /import` (twice is the same as once) · `GET /export.csv` · `GET /backup` (admins).
 
+`GET /pocket/portable`: Pocket Move can copy your projects and issues out and bring them in (link scopes `move:export` for the two exports, `move:import` for `POST /import`; the box's log lines stay out).
+
 ## Other Pocket apps (Pocket Core links)
 `errors:read` — `GET summary, search, issues, issues/{id}, issues/{id}/(events|latest|hours), projects, projects/{id}, day/{date}`; `errors:write` — `POST report`, `POST issues/{id}/status`, `POST issues/status` (only the issues of that app's own project). Events: `errors.issue_new`, `errors.issue_regressed`, `errors.issue_spike`, `errors.issue_resolved`.
