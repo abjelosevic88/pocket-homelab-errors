@@ -46,6 +46,7 @@ type Server struct {
 	logs    *logs.DB
 	journal *logs.Journal
 	logColl *logCollector
+	follow  *followers // open log streams, one per container read
 	watchMu sync.Mutex
 	watch   map[int64]*watchState // per person: the containers read and how it went
 
@@ -70,12 +71,14 @@ type resolvedURL struct {
 
 // New creates a server.
 func New(cfg *config.Config, st *store.Store, log *slog.Logger, webFS fs.FS) *Server {
-	return &Server{cfg: cfg, store: st, log: log, webFS: webFS, started: time.Now(), oidc: &oidcProvider{},
+	s := &Server{cfg: cfg, store: st, log: log, webFS: webFS, started: time.Now(), oidc: &oidcProvider{},
 		core:     core.New(cfg.CoreURL, core.Options{DB: st.DB, TokenFile: cfg.DataDir + "/core.token", UserAgent: cfg.UserAgent}),
 		resolved: map[string]resolvedURL{}, aiSem: make(chan struct{}, 3), statusCache: map[string]cachedState{},
 		rate: map[int64]*minuteCount{}, told: map[int64]*minuteCount{}, watch: map[int64]*watchState{},
 		docker: newDockerClient(cfg.DockerSocket), journal: &logs.Journal{Dir: cfg.JournalDir},
 		logColl: &logCollector{pos: map[string]time.Time{}, prev: map[string]int{}}}
+	s.follow = newFollowers(context.Background(), s.docker)
+	return s
 }
 
 // Bootstrap seeds the first admin (if configured), the owner's integration

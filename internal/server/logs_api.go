@@ -141,7 +141,7 @@ func (s *Server) handleLogsStatus(w http.ResponseWriter, r *http.Request) {
 	lines, oldest, newest := s.logs.Counts(ctx)
 	lc := s.logColl
 	lc.mu.Lock()
-	docker := map[string]any{"available": s.docker.available(), "error": lc.err, "containers": lc.read, "lines": lc.lines}
+	docker := map[string]any{"available": s.docker.available(), "error": lc.err, "containers": lc.read, "lines": lc.lines, "streams": s.follow.count()}
 	if !lc.checked.IsZero() {
 		docker["checked_at"] = lc.checked.UTC().Format(time.RFC3339)
 	}

@@ -20,6 +20,7 @@ import (
 type dockerClient struct {
 	socket string
 	http   *http.Client
+	stream *http.Client // no time limit: follow streams stay open
 }
 
 func newDockerClient(socket string) *dockerClient {
@@ -27,7 +28,7 @@ func newDockerClient(socket string) *dockerClient {
 		var d net.Dialer
 		return d.DialContext(ctx, "unix", socket)
 	}}
-	return &dockerClient{socket: socket, http: &http.Client{Transport: tr, Timeout: 30 * time.Second}}
+	return &dockerClient{socket: socket, http: &http.Client{Transport: tr, Timeout: 30 * time.Second}, stream: &http.Client{Transport: tr}}
 }
 
 // available says whether the socket is there (mounted into the container).
@@ -110,12 +111,40 @@ func (d *dockerClient) logs(ctx context.Context, id string, since string, max in
 		return nil, err
 	}
 	defer res.Body.Close()
-	body := io.LimitReader(res.Body, max)
+	var out []logLine
+	// a line too long for the scanner ends the read; what came before counts
+	_ = scanLogStream(io.LimitReader(res.Body, max), func(l logLine) { out = append(out, l) })
+	return out, nil
+}
+
+// follow opens a container's log stream from a time on and keeps it open:
+// Docker sends each new line as it is written, so nothing is read twice.
+// The caller closes the body (or cancels ctx) to stop it.
+func (d *dockerClient) follow(ctx context.Context, id string, since string) (io.ReadCloser, error) {
+	q := url.Values{"stdout": {"1"}, "stderr": {"1"}, "timestamps": {"1"}, "since": {since}, "follow": {"1"}}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://docker/containers/"+url.PathEscape(id)+"/logs?"+q.Encode(), nil)
+	if err != nil {
+		return nil, err
+	}
+	res, err := d.stream.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if res.StatusCode >= 300 {
+		b, _ := io.ReadAll(io.LimitReader(res.Body, 2000))
+		res.Body.Close()
+		return nil, fmt.Errorf("docker: %s: %s", res.Status, strings.TrimSpace(string(b)))
+	}
+	return res.Body, nil
+}
+
+// scanLogStream hands over each timestamped line of a logs body until it
+// ends. Without a terminal Docker multiplexes stdout and stderr in frames
+// (8-byte header: stream, 0, 0, 0, size); with one the text comes plain.
+func scanLogStream(body io.Reader, fn func(logLine)) error {
 	br := bufio.NewReaderSize(body, 64<<10)
 	head, _ := br.Peek(8)
 	var text io.Reader = br
-	// without a terminal Docker multiplexes stdout and stderr in frames
-	// (8-byte header: stream, 0, 0, 0, size)
 	if len(head) == 8 && head[0] <= 2 && head[1] == 0 && head[2] == 0 && head[3] == 0 {
 		pr, pw := io.Pipe()
 		go func() {
@@ -137,7 +166,6 @@ func (d *dockerClient) logs(ctx context.Context, id string, since string, max in
 	}
 	sc := bufio.NewScanner(text)
 	sc.Buffer(make([]byte, 64<<10), 1<<20)
-	var out []logLine
 	for sc.Scan() {
 		line := sc.Text()
 		stamp, rest, ok := strings.Cut(line, " ")
@@ -148,9 +176,9 @@ func (d *dockerClient) logs(ctx context.Context, id string, since string, max in
 		if err != nil {
 			continue
 		}
-		out = append(out, logLine{stamp: stamp, at: at, text: rest})
+		fn(logLine{stamp: stamp, at: at, text: rest})
 	}
-	return out, nil
+	return sc.Err()
 }
 
 // sinceArg turns Docker's stamp into the since= it takes (unix seconds with nanoseconds).

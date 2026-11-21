@@ -17,9 +17,9 @@ import (
 // ---- this box's containers ----
 //
 // An admin can have Errors read the logs of the containers on this box
-// (Settings → This box; the Docker socket has to be mounted). Every 15
-// seconds it reads what each matching container wrote since last time and
-// turns error lines, Go panics and Python tracebacks into events — so every
+// (Settings → This box; the Docker socket has to be mounted). Every 10
+// seconds it takes what each matching container wrote since last time (from
+// one open follow stream per container, see follow.go) and turns error lines, Go panics and Python tracebacks into events — so every
 // Pocket app's server errors arrive without changing anything in them. A
 // container gets its project on its first error, named as Pocket Core knows
 // the app ("pocket-notes" → "Pocket Notes"); archiving that project stops

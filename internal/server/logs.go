@@ -84,6 +84,7 @@ type tickRead struct {
 }
 
 func (s *Server) newTick() {
+	s.follow.tidy()
 	s.tickMu.Lock()
 	s.tick = &tickReads{reads: map[string]*tickRead{}}
 	s.tickMu.Unlock()
@@ -129,7 +130,14 @@ func (s *Server) tickLogs(ctx context.Context, id string, since time.Time) ([]lo
 		}
 		return out, nil
 	}
-	lines, err := s.docker.logs(ctx, id, sinceArg(since), 4<<20)
+	var lines []logLine
+	var err error
+	if fl, ok := s.follow.read(id, since); ok {
+		lines = fl
+	} else {
+		// further behind than the stream's buffer, or no stream: ask Docker
+		lines, err = s.docker.logs(ctx, id, sinceArg(since), 4<<20)
+	}
 	t.mu.Lock()
 	t.reads[id] = &tickRead{since: since, lines: lines, err: err}
 	t.mu.Unlock()
