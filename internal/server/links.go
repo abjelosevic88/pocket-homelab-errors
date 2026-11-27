@@ -34,6 +34,16 @@ var portable = &core.Portable{
 	},
 }
 
+// capabilities is what Pocket Search, Pocket Day and Pocket Hub may read
+// here for a person (docs/capabilities.md in pocket-homelab-core); Register
+// adds the pocket:* offers. Only issue titles, projects, counts and times:
+// no event, stack or log line, and nothing can be resolved or ignored.
+var capabilities = core.Capabilities{
+	Search: &core.Searchable{What: "Your issues, by what broke, where it broke or the project", Kinds: []string{"issue"}, Bangs: []string{"errors", "error", "issue"}},
+	Day:    &core.DayFeed{Label: "Errors", One: "issue", Many: "issues", What: "The issues first seen that day and the ones that came back after you resolved them, with how many times each happened"},
+	Widget: &core.Widget{Title: "Errors", What: "The open issues happening today, new ones first, then the busiest"},
+}
+
 type linkRoute struct {
 	methods string
 	path    *regexp.Regexp
@@ -56,7 +66,7 @@ var errLinkScope = errors.New("outside the link's scope")
 
 // linkAllows reports whether a link token with these scopes may make this request.
 func linkAllows(scopes []string, r *http.Request) bool {
-	if portable.LinkAllows(scopes, r) {
+	if portable.LinkAllows(scopes, r) || capabilities.LinkAllows(scopes, r) {
 		return true
 	}
 	for _, lr := range linkRoutes {

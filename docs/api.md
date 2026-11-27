@@ -56,5 +56,17 @@ Every route takes `range` (`30m`, `24h`, `7d`; also `since`) or `from`/`to` (uni
 
 `GET /pocket/portable`: Pocket Move can copy your projects and issues out and bring them in (link scopes `move:export` for the two exports, `move:import` for `POST /import`; the box's log lines stay out).
 
+## Pocket Search, Pocket Day and Pocket Hub
+
+Errors answers three of the routes every Pocket app can offer (`docs/capabilities.md` in Pocket Core), so Pocket Search, Pocket Day and Pocket Hub find it on their own. Each has its own link scope that opens that one route and nothing else; a signed-in person or a personal token can call them too. They only read, and only your own projects' issues: titles, projects, counts and times, never an event, a stack, where in the code or a log line. Addresses (`url`) are paths in the app (`/issues/{id}`).
+
+| Route | Scope | What |
+|---|---|---|
+| `GET /pocket/search?q&limit` | `pocket:search` | `{items}`: issues whose title, culprit or project has the words, open ones first, then the last seen. Each has `id`, `title`, `snippet` ("Shop · open · 42 times · last seen today"), `kind` `issue`, `date` (last seen) and `url` |
+| `GET /pocket/day/{date}?tz=` | `pocket:day` | `{date, summary, items, metrics}`: the issues first seen that day (`kind` `new`) and the ones that came back after they were resolved (`came back`), with `time`, `sub` ("Shop · 3 times", the times that day) and `url`. `summary` is "3 new issues, 1 came back"; `metrics` New, Came back and Errors (every error that day). The day is the box's unless `tz` says otherwise |
+| `GET /pocket/widget` | `pocket:widget` | `{line, metrics, items, url}`: the open issues that happened today, new ones first, then the busiest, with `detail` "Shop · 42 times today". `line` is "2 new issues today" (", 1 came back") or empty; `metrics` Open and New today |
+
+No quick line: an error is something an app sends, not something a person types.
+
 ## Other Pocket apps (Pocket Core links)
 `errors:read` — `GET summary, search, issues, issues/{id}, issues/{id}/(events|latest|hours), projects, projects/{id}, day/{date}`; `errors:write` — `POST report`, `POST issues/{id}/status`, `POST issues/status` (only the issues of that app's own project). Events: `errors.issue_new`, `errors.issue_regressed`, `errors.issue_spike`, `errors.issue_resolved`.

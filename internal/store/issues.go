@@ -126,6 +126,11 @@ func (s *Store) Record(ctx context.Context, p *Project, in Incoming) (RecordResu
 			is.Culprit, Now(), is.ID); err != nil {
 			return out, err
 		}
+		if out.Outcome == OutcomeRegressed {
+			if _, err := tx.ExecContext(ctx, `UPDATE issues SET regressed_at = ? WHERE id = ?`, Stamp(now), is.ID); err != nil {
+				return out, err
+			}
+		}
 	}
 	hour := HourKey(in.At)
 	if in.At.After(now.Add(time.Hour)) {

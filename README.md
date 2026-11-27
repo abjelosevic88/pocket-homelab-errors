@@ -91,6 +91,8 @@ Set `CORE_URL` and `CORE_REGISTRATION_KEY` and Errors joins the box: people sign
 
 Other apps use your errors through `errors:read` and `errors:write`: Pocket AI answers “what broke today?” and, for an admin, “what did the box log about it?” (`pocket_errors_*` tools in Pocket Core: issues, and `logs`, `log_overview`, `log_patterns`, `log_web`, `log_sources`, `log_context`, `issue_logs`), Pocket Day can show the day (`GET /day/{date}`), Pocket Search finds issues, and any Pocket app can report its own errors (`POST /report`) into a project named after it. Events `errors.issue_new`, `errors.issue_regressed`, `errors.issue_spike` and `errors.issue_resolved` start flows in Pocket Flows.
 
+Pocket Search, Pocket Day and Pocket Hub find Errors on their own, with nothing to set up in either: your issues turn up in Search (`!errors timeout`), Hub shows an "Errors" widget with the open issues happening today, new ones first, and the day says which issues were new and which came back. They see only titles, counts and times of your own issues, never a stack or a log line, and change nothing. The routes are in [docs/api.md](docs/api.md#pocket-search-pocket-day-and-pocket-hub).
+
 ## Develop
 
 ```sh
